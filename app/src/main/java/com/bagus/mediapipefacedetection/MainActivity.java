@@ -9,6 +9,8 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.Toast;
 
 import com.google.mediapipe.components.CameraHelper;
 import com.google.mediapipe.components.CameraXPreviewHelper;
@@ -26,6 +28,7 @@ public class MainActivity extends AppCompatActivity {
     private static final boolean FLIP_FRAMES_VERTICALLY = true;
     private SurfaceTexture surfaceTexture;
     private SurfaceView surfaceView;
+    private Button captureImageButton;
     private EglManager eglManager;
     private FrameProcessor frameProcessor;
     private ExternalTextureConverter externalTextureConverter;
@@ -41,6 +44,10 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        //Getting Button From Main Activity and Setting Handler
+        captureImageButton = findViewById(R.id.capImage);
+        captureImageButton.setOnClickListener(new ImageCaptureBtnHandler());
+
         surfaceView = new SurfaceView(this);
         setupPreviewDisplayView();
         AndroidAssetUtil.initializeNativeAssetManager(this);
@@ -54,6 +61,7 @@ public class MainActivity extends AppCompatActivity {
         surfaceView.setVisibility(View.GONE);
         ViewGroup viewGroup = findViewById(R.id.preview_display_layout);
         viewGroup.addView(surfaceView);
+
         surfaceView.getHolder().addCallback(new SurfaceHolder.Callback() {
             @Override
             public void surfaceCreated(SurfaceHolder holder) {
@@ -102,6 +110,17 @@ public class MainActivity extends AppCompatActivity {
                 }
         );
         cameraXPreviewHelper.startCamera(this, CAMERA_FACING, null);
+    }
+
+    private class ImageCaptureBtnHandler implements View.OnClickListener{
+        @Override
+        public void onClick(View view) {
+
+            //Getting the Current Image
+
+            //Getting Response and setting toast appropriately
+            Toast.makeText(view.getContext(), "Button Clicked", Toast.LENGTH_SHORT ).show();
+        }
     }
 
     @Override
