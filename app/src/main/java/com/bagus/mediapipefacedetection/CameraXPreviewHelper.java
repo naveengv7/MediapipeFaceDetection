@@ -1,5 +1,4 @@
 package com.bagus.mediapipefacedetection;
-
 // Copyright 2019 The MediaPipe Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -138,7 +137,7 @@ public class CameraXPreviewHelper extends CameraHelper {
      */
     @Override
     public void startCamera(
-            Activity activity, CameraFacing cameraFacing, @Nullable SurfaceTexture surfaceTexture) {
+            Activity activity, CameraHelper.CameraFacing cameraFacing, @Nullable SurfaceTexture surfaceTexture) {
         startCamera(activity, (LifecycleOwner) activity, cameraFacing, surfaceTexture, TARGET_SIZE);
     }
 

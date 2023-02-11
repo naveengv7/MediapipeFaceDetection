@@ -1,11 +1,13 @@
 package com.bagus.mediapipefacedetection;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.camera.core.ImageCapture;
+import androidx.camera.core.ImageCaptureException;
 
-import android.content.res.Resources;
 import android.graphics.SurfaceTexture;
 import android.os.Bundle;
-import android.util.Log;
+import android.os.Environment;
 import android.util.Size;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -14,8 +16,8 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.Toast;
 
-import com.bagus.mediapipefacedetection.CameraXPreviewHelper;
 import com.google.mediapipe.components.CameraHelper;
+import com.bagus.mediapipefacedetection.CameraXPreviewHelper;
 import com.google.mediapipe.components.ExternalTextureConverter;
 import com.google.mediapipe.components.FrameProcessor;
 import com.google.mediapipe.components.PermissionHelper;
@@ -28,9 +30,7 @@ import com.google.mediapipe.glutil.EglManager;
 import com.google.protobuf.InvalidProtocolBufferException;
 
 import java.io.File;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 //Code Sources:
@@ -57,7 +57,12 @@ public class MainActivity extends AppCompatActivity {
     private LandmarkProto.NormalizedLandmarkList currentLandmarks;
     private boolean landmarksExist;
     private boolean haveSidePackets = false;
-    private final String SAVE_DIRECTORY = ""
+    private ImageCapture.OnImageSavedCallback imageSavedCallback;
+    private ImageCapture.Builder imageCaptureBuilder;
+    private final Size cameraResolution = new Size(2448,3264);
+
+
+    private final String SAVE_FILE = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).toString() + "/output";
 
     static {
         System.loadLibrary("mediapipe_jni");
@@ -76,6 +81,22 @@ public class MainActivity extends AppCompatActivity {
         //Getting Button From Main Activity and Setting Handler
         captureImageButton = findViewById(R.id.capImage);
         captureImageButton.setOnClickListener(new ImageCaptureBtnHandler());
+
+        //Initializing the imageCaptureBuilder
+        imageCaptureBuilder = new ImageCapture.Builder();
+
+        //Creating Image Saved Callback
+        imageSavedCallback = new ImageCapture.OnImageSavedCallback() {
+            @Override
+            public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
+
+            }
+
+            @Override
+            public void onError(@NonNull ImageCaptureException exception) {
+
+            }
+        };
 
         //Setting Up Preview
         surfaceView = new SurfaceView(this);
@@ -189,7 +210,7 @@ public class MainActivity extends AppCompatActivity {
                     onCameraStarted(surfaceTexture);
                 }
         );
-        cameraXPreviewHelper.startCamera(this, CAMERA_FACING, null);
+        cameraXPreviewHelper.startCamera(this, imageCaptureBuilder, CAMERA_FACING, null, cameraResolution);
     }
 
     private class ImageCaptureBtnHandler implements View.OnClickListener{
@@ -205,16 +226,16 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(view.getContext(), "Iris Landmarks Found: Captured Image", Toast.LENGTH_SHORT ).show();
 
                 //Getting the Current Image
-                cameraXPreviewHelper.takePicture(new File(outputFilename + ".jpg"), null);
-                
+                cameraXPreviewHelper.takePicture(new File(SAVE_FILE + ".jpg"), imageSavedCallback);
+
                 //Getting Camera Dimensions
                 int width = cameraXPreviewHelper.getFrameSize().getWidth();
                 int height = cameraXPreviewHelper.getFrameSize().getHeight();
+                System.out.println(width + " " + height);
 
                 //Generating IrisData file
                 IrisData irisData = new IrisData(currentLandmarks, height, width);
-                irisData.generateFile("output.irisdata");
-
+                irisData.generateFile(SAVE_FILE+".irisdata");
             }
             else //Notifying the user
             {
