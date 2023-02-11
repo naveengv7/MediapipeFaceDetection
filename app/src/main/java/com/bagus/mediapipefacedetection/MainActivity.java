@@ -18,10 +18,23 @@ import com.google.mediapipe.components.ExternalTextureConverter;
 import com.google.mediapipe.components.FrameProcessor;
 import com.google.mediapipe.components.PermissionHelper;
 import com.google.mediapipe.framework.AndroidAssetUtil;
+import com.google.mediapipe.framework.Packet;
+import com.google.mediapipe.framework.PacketCallback;
+import com.google.mediapipe.framework.PacketGetter;
 import com.google.mediapipe.glutil.EglManager;
 
+import java.util.HashMap;
+import java.util.Map;
+
+//Code Sources:
+//https://github.com/google/mediapipe/blob/master/mediapipe/examples/android/src/java/com/google/mediapipe/apps/iristrackinggpu/MainActivity.java
+//https://github.com/google/mediapipe/blob/master/mediapipe/examples/android/src/java/com/google/mediapipe/apps/basic/MainActivity.java
+
 public class MainActivity extends AppCompatActivity {
-    private static final String BINARY_GRAPH_NAME = "face_detection_mobile_gpu.binarypb";
+
+    private static final String FOCAL_LENGTH_STREAM_NAME = "focal_length_pixel";
+    private static final String OUTPUT_LANDMARKS_STREAM_NAME = "face_landmarks_with_iris";
+    private static final String BINARY_GRAPH_NAME = "iris_tracking_gpu.binarypb";
     private static final String INPUT_VIDEO_STREAM_NAME = "input_video";
     private static final String OUTPUT_VIDEO_STREAM_NAME = "output_video";
     private static final CameraHelper.CameraFacing CAMERA_FACING = CameraHelper.CameraFacing.FRONT;
@@ -34,6 +47,8 @@ public class MainActivity extends AppCompatActivity {
     private ExternalTextureConverter externalTextureConverter;
     private CameraXPreviewHelper cameraXPreviewHelper;
 
+    private boolean haveSidePackets = false;
+
     static {
         System.loadLibrary("mediapipe_jni");
         System.loadLibrary("opencv_java3");
@@ -41,6 +56,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        //Initializing Super Class
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
@@ -48,13 +64,40 @@ public class MainActivity extends AppCompatActivity {
         captureImageButton = findViewById(R.id.capImage);
         captureImageButton.setOnClickListener(new ImageCaptureBtnHandler());
 
+        //Setting Up Preview
         surfaceView = new SurfaceView(this);
         setupPreviewDisplayView();
+
+        //Initializing Asset Manager
         AndroidAssetUtil.initializeNativeAssetManager(this);
+
+        //Setting up Frame Processor
         eglManager = new EglManager(null);
         frameProcessor = new FrameProcessor(this, eglManager.getNativeContext(), BINARY_GRAPH_NAME, INPUT_VIDEO_STREAM_NAME, OUTPUT_VIDEO_STREAM_NAME);
         frameProcessor.getVideoSurfaceOutput().setFlipY(FLIP_FRAMES_VERTICALLY);
+
+        //Getting Camera Permissions
         PermissionHelper.checkAndRequestCameraPermissions(this);
+    }
+
+    private void onCameraStarted(SurfaceTexture surfaceTexture)
+    {
+        this.surfaceTexture = surfaceTexture;
+        // Make the display view visible to start showing the preview. This triggers the
+        // SurfaceHolder.Callback added to (the holder of) previewDisplayView.
+        this.surfaceView.setVisibility(View.VISIBLE);
+
+        //This method is called on activity resume, however the following code should only be executed once
+        if (!haveSidePackets) {
+            float focalLength = cameraXPreviewHelper.getFocalLengthPixels();
+            if (focalLength != Float.MIN_VALUE) {
+                Packet focalLengthSidePacket = frameProcessor.getPacketCreator().createFloat32(focalLength);
+                Map<String, Packet> inputSidePackets = new HashMap<>();
+                inputSidePackets.put(FOCAL_LENGTH_STREAM_NAME, focalLengthSidePacket);
+                frameProcessor.setInputSidePackets(inputSidePackets);
+            }
+            haveSidePackets = true;
+        }
     }
 
     private void setupPreviewDisplayView() {
@@ -105,8 +148,7 @@ public class MainActivity extends AppCompatActivity {
         cameraXPreviewHelper = new CameraXPreviewHelper();
         cameraXPreviewHelper.setOnCameraStartedListener(
                 surfaceTexture -> {
-                    this.surfaceTexture = surfaceTexture;
-                    surfaceView.setVisibility(View.VISIBLE);
+                    onCameraStarted(surfaceTexture);
                 }
         );
         cameraXPreviewHelper.startCamera(this, CAMERA_FACING, null);
@@ -117,6 +159,7 @@ public class MainActivity extends AppCompatActivity {
         public void onClick(View view) {
 
             //Getting the Current Image
+            //cameraXPreviewHelper.takePicture();
 
             //Getting Response and setting toast appropriately
             Toast.makeText(view.getContext(), "Button Clicked", Toast.LENGTH_SHORT ).show();
