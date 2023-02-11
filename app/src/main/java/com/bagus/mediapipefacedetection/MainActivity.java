@@ -45,7 +45,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String BINARY_GRAPH_NAME = "iris_tracking_gpu.binarypb";
     private static final String INPUT_VIDEO_STREAM_NAME = "input_video";
     private static final String OUTPUT_VIDEO_STREAM_NAME = "output_video";
-    private static final CameraHelper.CameraFacing CAMERA_FACING = CameraHelper.CameraFacing.FRONT;
+    private static final CameraHelper.CameraFacing CAMERA_FACING = CameraHelper.CameraFacing.BACK;
     private static final boolean FLIP_FRAMES_VERTICALLY = true;
     private SurfaceTexture surfaceTexture;
     private SurfaceView surfaceView;
@@ -60,8 +60,6 @@ public class MainActivity extends AppCompatActivity {
     private ImageCapture.OnImageSavedCallback imageSavedCallback;
     private ImageCapture.Builder imageCaptureBuilder;
     private final Size cameraResolution = new Size(2448,3264);
-
-
     private final String SAVE_FILE = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).toString() + "/output";
 
     static {
