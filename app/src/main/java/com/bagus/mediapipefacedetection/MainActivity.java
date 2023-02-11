@@ -55,9 +55,6 @@ public class MainActivity extends AppCompatActivity {
     private CameraXPreviewHelper cameraXPreviewHelper;
     private LandmarkProto.NormalizedLandmarkList currentLandmarks;
     private boolean landmarksExist;
-    private int screenHeight;
-    private int screenWidth;
-
     private boolean haveSidePackets = false;
 
     static {
@@ -82,9 +79,6 @@ public class MainActivity extends AppCompatActivity {
         surfaceView = new SurfaceView(this);
         setupPreviewDisplayView();
 
-        //Getting the width and height of the image
-        screenHeight = Resources.getSystem().getDisplayMetrics().heightPixels;
-        screenWidth = Resources.getSystem().getDisplayMetrics().widthPixels;
         //Initializing Asset Manager
         AndroidAssetUtil.initializeNativeAssetManager(this);
 
@@ -200,13 +194,26 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onClick(View view) {
 
-            //Getting the Current Image
-            //cameraXPreviewHelper.takePicture();
-            IrisData irisData = new IrisData(currentLandmarks);
-            System.out.println(irisData);
+            //Checking if any landmarks are found
+            if(landmarksExist)
+            {
+                //Displaying Result to the User
+                Toast.makeText(view.getContext(), "Iris Landmarks Found: Captured Image", Toast.LENGTH_SHORT ).show();
 
-            //Getting Response and setting toast appropriately
-            Toast.makeText(view.getContext(), "Button Clicked", Toast.LENGTH_SHORT ).show();
+                //Getting the Current Image
+
+                //Getting Camera Dimensions
+                int width = cameraXPreviewHelper.getFrameSize().getWidth();
+                int height = cameraXPreviewHelper.getFrameSize().getHeight();
+
+                //Generating IrisData file
+                IrisData irisData = new IrisData(currentLandmarks);
+            }
+            else //Notifying the user
+            {
+                //Displaying Result to the User
+                Toast.makeText(view.getContext(), "No Landmarks Found", Toast.LENGTH_SHORT ).show();
+            }
         }
     }
 
