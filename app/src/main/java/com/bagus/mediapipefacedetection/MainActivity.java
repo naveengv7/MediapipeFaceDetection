@@ -2,6 +2,7 @@ package com.bagus.mediapipefacedetection;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.res.Resources;
 import android.graphics.SurfaceTexture;
 import android.os.Bundle;
 import android.util.Log;
@@ -26,12 +27,15 @@ import com.google.mediapipe.framework.PacketGetter;
 import com.google.mediapipe.glutil.EglManager;
 import com.google.protobuf.InvalidProtocolBufferException;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 //Code Sources:
 //https://github.com/google/mediapipe/blob/master/mediapipe/examples/android/src/java/com/google/mediapipe/apps/iristrackinggpu/MainActivity.java
 //https://github.com/google/mediapipe/blob/master/mediapipe/examples/android/src/java/com/google/mediapipe/apps/basic/MainActivity.java
+//https://github.com/TheAdmiral95/IrisTracking
 
 public class MainActivity extends AppCompatActivity {
 
@@ -51,6 +55,8 @@ public class MainActivity extends AppCompatActivity {
     private CameraXPreviewHelper cameraXPreviewHelper;
     private LandmarkProto.NormalizedLandmarkList currentLandmarks;
     private boolean landmarksExist;
+    private int screenHeight;
+    private int screenWidth;
 
     private boolean haveSidePackets = false;
 
@@ -76,6 +82,9 @@ public class MainActivity extends AppCompatActivity {
         surfaceView = new SurfaceView(this);
         setupPreviewDisplayView();
 
+        //Getting the width and height of the image
+        screenHeight = Resources.getSystem().getDisplayMetrics().heightPixels;
+        screenWidth = Resources.getSystem().getDisplayMetrics().widthPixels;
         //Initializing Asset Manager
         AndroidAssetUtil.initializeNativeAssetManager(this);
 
@@ -92,8 +101,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     //From: https://github.com/google/mediapipe/blob/master/mediapipe/examples/android/src/java/com/google/mediapipe/apps/iristrackinggpu/MainActivity.java
-    private void addingLandmarkPacketCallback()
-    {
+    private void addingLandmarkPacketCallback() {
         frameProcessor.addPacketCallback(OUTPUT_LANDMARKS_STREAM_NAME,
                 new PacketCallback() {
                     @Override
@@ -104,30 +112,14 @@ public class MainActivity extends AppCompatActivity {
                             currentLandmarks = LandmarkProto.NormalizedLandmarkList.parseFrom(rawLandmarks);
 
                             //Updating the state of the landmarksExist Variable
-                            if(currentLandmarks == null) landmarksExist = false;
+                            if (currentLandmarks == null) landmarksExist = false;
                             else landmarksExist = true;
 
+                        } catch (InvalidProtocolBufferException e) {
                         }
-                        catch(InvalidProtocolBufferException e) {}
                     }
                 }
         );
-    }
-
-    private void printLandmarks()
-    {
-        if(landmarksExist)
-        {
-            for (LandmarkProto.NormalizedLandmark landmark : currentLandmarks.getLandmarkList())
-            {
-                System.out.println("X: " + landmark.getX() + ", Y: " + landmark.getY() + ", Z: " + landmark.getZ());
-            }
-        }
-        else
-        {
-            System.out.println("No Landmarks Exist");
-        }
-
     }
 
     private void onCameraStarted(SurfaceTexture surfaceTexture)
@@ -210,7 +202,8 @@ public class MainActivity extends AppCompatActivity {
 
             //Getting the Current Image
             //cameraXPreviewHelper.takePicture();
-            printLandmarks();
+            IrisData irisData = new IrisData(currentLandmarks);
+            System.out.println(irisData);
 
             //Getting Response and setting toast appropriately
             Toast.makeText(view.getContext(), "Button Clicked", Toast.LENGTH_SHORT ).show();
