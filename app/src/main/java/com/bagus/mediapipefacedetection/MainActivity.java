@@ -14,8 +14,8 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.Toast;
 
+import com.bagus.mediapipefacedetection.CameraXPreviewHelper;
 import com.google.mediapipe.components.CameraHelper;
-import com.google.mediapipe.components.CameraXPreviewHelper;
 import com.google.mediapipe.components.ExternalTextureConverter;
 import com.google.mediapipe.components.FrameProcessor;
 import com.google.mediapipe.components.PermissionHelper;
@@ -27,6 +27,7 @@ import com.google.mediapipe.framework.PacketGetter;
 import com.google.mediapipe.glutil.EglManager;
 import com.google.protobuf.InvalidProtocolBufferException;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -56,6 +57,7 @@ public class MainActivity extends AppCompatActivity {
     private LandmarkProto.NormalizedLandmarkList currentLandmarks;
     private boolean landmarksExist;
     private boolean haveSidePackets = false;
+    private final String SAVE_DIRECTORY = ""
 
     static {
         System.loadLibrary("mediapipe_jni");
@@ -194,6 +196,8 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onClick(View view) {
 
+            String outputFilename = "output";
+
             //Checking if any landmarks are found
             if(landmarksExist)
             {
@@ -201,13 +205,16 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(view.getContext(), "Iris Landmarks Found: Captured Image", Toast.LENGTH_SHORT ).show();
 
                 //Getting the Current Image
-
+                cameraXPreviewHelper.takePicture(new File(outputFilename + ".jpg"), null);
+                
                 //Getting Camera Dimensions
                 int width = cameraXPreviewHelper.getFrameSize().getWidth();
                 int height = cameraXPreviewHelper.getFrameSize().getHeight();
 
                 //Generating IrisData file
-                IrisData irisData = new IrisData(currentLandmarks);
+                IrisData irisData = new IrisData(currentLandmarks, height, width);
+                irisData.generateFile("output.irisdata");
+
             }
             else //Notifying the user
             {
