@@ -4,6 +4,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import android.graphics.SurfaceTexture;
 import android.os.Bundle;
+import android.util.Log;
 import android.util.Size;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -17,11 +18,13 @@ import com.google.mediapipe.components.CameraXPreviewHelper;
 import com.google.mediapipe.components.ExternalTextureConverter;
 import com.google.mediapipe.components.FrameProcessor;
 import com.google.mediapipe.components.PermissionHelper;
+import com.google.mediapipe.formats.proto.LandmarkProto;
 import com.google.mediapipe.framework.AndroidAssetUtil;
 import com.google.mediapipe.framework.Packet;
 import com.google.mediapipe.framework.PacketCallback;
 import com.google.mediapipe.framework.PacketGetter;
 import com.google.mediapipe.glutil.EglManager;
+import com.google.protobuf.InvalidProtocolBufferException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -46,6 +49,8 @@ public class MainActivity extends AppCompatActivity {
     private FrameProcessor frameProcessor;
     private ExternalTextureConverter externalTextureConverter;
     private CameraXPreviewHelper cameraXPreviewHelper;
+    private LandmarkProto.NormalizedLandmarkList currentLandmarks;
+    private boolean landmarksExist;
 
     private boolean haveSidePackets = false;
 
@@ -59,6 +64,9 @@ public class MainActivity extends AppCompatActivity {
         //Initializing Super Class
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        //Initializing landmarksExist
+        landmarksExist = false;
 
         //Getting Button From Main Activity and Setting Handler
         captureImageButton = findViewById(R.id.capImage);
@@ -76,8 +84,50 @@ public class MainActivity extends AppCompatActivity {
         frameProcessor = new FrameProcessor(this, eglManager.getNativeContext(), BINARY_GRAPH_NAME, INPUT_VIDEO_STREAM_NAME, OUTPUT_VIDEO_STREAM_NAME);
         frameProcessor.getVideoSurfaceOutput().setFlipY(FLIP_FRAMES_VERTICALLY);
 
+        //Adding the Landmark Packet Callback
+        addingLandmarkPacketCallback();
+
         //Getting Camera Permissions
         PermissionHelper.checkAndRequestCameraPermissions(this);
+    }
+
+    //From: https://github.com/google/mediapipe/blob/master/mediapipe/examples/android/src/java/com/google/mediapipe/apps/iristrackinggpu/MainActivity.java
+    private void addingLandmarkPacketCallback()
+    {
+        frameProcessor.addPacketCallback(OUTPUT_LANDMARKS_STREAM_NAME,
+                new PacketCallback() {
+                    @Override
+                    public void process(Packet packet) {
+                        byte[] rawLandmarks = PacketGetter.getProtoBytes(packet);
+                        try {
+                            //Converting the Landmarks from their Raw Form
+                            currentLandmarks = LandmarkProto.NormalizedLandmarkList.parseFrom(rawLandmarks);
+
+                            //Updating the state of the landmarksExist Variable
+                            if(currentLandmarks == null) landmarksExist = false;
+                            else landmarksExist = true;
+
+                        }
+                        catch(InvalidProtocolBufferException e) {}
+                    }
+                }
+        );
+    }
+
+    private void printLandmarks()
+    {
+        if(landmarksExist)
+        {
+            for (LandmarkProto.NormalizedLandmark landmark : currentLandmarks.getLandmarkList())
+            {
+                System.out.println("X: " + landmark.getX() + ", Y: " + landmark.getY() + ", Z: " + landmark.getZ());
+            }
+        }
+        else
+        {
+            System.out.println("No Landmarks Exist");
+        }
+
     }
 
     private void onCameraStarted(SurfaceTexture surfaceTexture)
@@ -160,6 +210,7 @@ public class MainActivity extends AppCompatActivity {
 
             //Getting the Current Image
             //cameraXPreviewHelper.takePicture();
+            printLandmarks();
 
             //Getting Response and setting toast appropriately
             Toast.makeText(view.getContext(), "Button Clicked", Toast.LENGTH_SHORT ).show();
