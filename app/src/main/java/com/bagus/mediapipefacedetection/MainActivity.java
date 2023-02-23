@@ -5,6 +5,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.core.ImageCapture;
 import androidx.camera.core.ImageCaptureException;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.SurfaceTexture;
 import android.os.Bundle;
 import android.os.Environment;
@@ -17,7 +19,6 @@ import android.widget.Button;
 import android.widget.Toast;
 
 import com.google.mediapipe.components.CameraHelper;
-import com.bagus.mediapipefacedetection.CameraXPreviewHelper;
 import com.google.mediapipe.components.ExternalTextureConverter;
 import com.google.mediapipe.components.FrameProcessor;
 import com.google.mediapipe.components.PermissionHelper;
@@ -28,9 +29,11 @@ import com.google.mediapipe.framework.PacketCallback;
 import com.google.mediapipe.framework.PacketGetter;
 import com.google.mediapipe.glutil.EglManager;
 import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.MessageLite;
 
 import java.io.File;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 //Code Sources:
@@ -45,7 +48,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String BINARY_GRAPH_NAME = "iris_tracking_gpu.binarypb";
     private static final String INPUT_VIDEO_STREAM_NAME = "input_video";
     private static final String OUTPUT_VIDEO_STREAM_NAME = "output_video";
-    private static final CameraHelper.CameraFacing CAMERA_FACING = CameraHelper.CameraFacing.BACK;
+    private static final CameraHelper.CameraFacing CAMERA_FACING = CameraHelper.CameraFacing.FRONT;
     private static final boolean FLIP_FRAMES_VERTICALLY = true;
     private SurfaceTexture surfaceTexture;
     private SurfaceView surfaceView;
@@ -55,12 +58,15 @@ public class MainActivity extends AppCompatActivity {
     private ExternalTextureConverter externalTextureConverter;
     private CameraXPreviewHelper cameraXPreviewHelper;
     private LandmarkProto.NormalizedLandmarkList currentLandmarks;
+    private List<LandmarkProto.NormalizedLandmark> captureLandmarks;
     private boolean landmarksExist;
     private boolean haveSidePackets = false;
     private ImageCapture.OnImageSavedCallback imageSavedCallback;
     private ImageCapture.Builder imageCaptureBuilder;
     private final Size cameraResolution = new Size(2448,3264);
-    private final String SAVE_FILE = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).toString() + "/output";
+    private final String SAVE_FILE_DIR = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).toString() + "/";
+    private File fullImageFile;
+    private IrisData irisData;
 
     static {
         System.loadLibrary("mediapipe_jni");
@@ -73,8 +79,12 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        //Initializing Full Image File
+        fullImageFile = new File(SAVE_FILE_DIR + "temp.jpg");
+
         //Initializing landmarksExist
         landmarksExist = false;
+        captureLandmarks = null;
 
         //Getting Button From Main Activity and Setting Handler
         captureImageButton = findViewById(R.id.capImage);
@@ -84,17 +94,7 @@ public class MainActivity extends AppCompatActivity {
         imageCaptureBuilder = new ImageCapture.Builder();
 
         //Creating Image Saved Callback
-        imageSavedCallback = new ImageCapture.OnImageSavedCallback() {
-            @Override
-            public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
-
-            }
-
-            @Override
-            public void onError(@NonNull ImageCaptureException exception) {
-
-            }
-        };
+        generateImageSavedCallback();
 
         //Setting Up Preview
         surfaceView = new SurfaceView(this);
@@ -115,6 +115,8 @@ public class MainActivity extends AppCompatActivity {
         PermissionHelper.checkAndRequestCameraPermissions(this);
     }
 
+
+
     //From: https://github.com/google/mediapipe/blob/master/mediapipe/examples/android/src/java/com/google/mediapipe/apps/iristrackinggpu/MainActivity.java
     private void addingLandmarkPacketCallback() {
         frameProcessor.addPacketCallback(OUTPUT_LANDMARKS_STREAM_NAME,
@@ -125,6 +127,7 @@ public class MainActivity extends AppCompatActivity {
                         try {
                             //Converting the Landmarks from their Raw Form
                             currentLandmarks = LandmarkProto.NormalizedLandmarkList.parseFrom(rawLandmarks);
+
 
                             //Updating the state of the landmarksExist Variable
                             if (currentLandmarks == null) landmarksExist = false;
@@ -208,7 +211,7 @@ public class MainActivity extends AppCompatActivity {
                     onCameraStarted(surfaceTexture);
                 }
         );
-        cameraXPreviewHelper.startCamera(this, imageCaptureBuilder, CAMERA_FACING, null, cameraResolution);
+        cameraXPreviewHelper.startCamera(this, imageCaptureBuilder, CAMERA_FACING, null, null);
     }
 
     private class ImageCaptureBtnHandler implements View.OnClickListener{
@@ -223,17 +226,11 @@ public class MainActivity extends AppCompatActivity {
                 //Displaying Result to the User
                 Toast.makeText(view.getContext(), "Iris Landmarks Found: Captured Image", Toast.LENGTH_SHORT ).show();
 
+                //Saving the Current Landmarks
+                captureLandmarks = currentLandmarks.getLandmarkList();
+
                 //Getting the Current Image
-                cameraXPreviewHelper.takePicture(new File(SAVE_FILE + ".jpg"), imageSavedCallback);
-
-                //Getting Camera Dimensions
-                int width = cameraXPreviewHelper.getFrameSize().getWidth();
-                int height = cameraXPreviewHelper.getFrameSize().getHeight();
-                System.out.println(width + " " + height);
-
-                //Generating IrisData file
-                IrisData irisData = new IrisData(currentLandmarks, height, width);
-                irisData.generateFile(SAVE_FILE+".irisdata");
+                cameraXPreviewHelper.takePicture(fullImageFile, imageSavedCallback);
             }
             else //Notifying the user
             {
@@ -241,6 +238,33 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(view.getContext(), "No Landmarks Found", Toast.LENGTH_SHORT ).show();
             }
         }
+    }
+
+    private void generateImageSavedCallback() {
+        imageSavedCallback = new ImageCapture.OnImageSavedCallback() {
+            @Override
+            public void onImageSaved(@NonNull ImageCapture.OutputFileResults outputFileResults) {
+                //Generating Bitmap
+                Bitmap bmp = BitmapFactory.decodeFile(fullImageFile.getPath());
+
+                //Creating IrisData
+                irisData = new IrisData(captureLandmarks,bmp);
+                irisData.generateIrisImages(SAVE_FILE_DIR + "LeftIris.jpg",SAVE_FILE_DIR + "RightIris.jpg");
+
+                //Deleting the Temporary File
+                fullImageFile.delete();
+            }
+
+            @Override
+            public void onError(@NonNull ImageCaptureException exception) {
+
+            }
+        };
+    }
+
+    private List<LandmarkProto.NormalizedLandmark> copyLandmarks(LandmarkProto.NormalizedLandmarkList source)
+    {
+        return source.getLandmarkList();
     }
 
     @Override
